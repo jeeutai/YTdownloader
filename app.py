@@ -447,7 +447,7 @@ def main():
                     "DAY6 - HAPPY", "DAY6 - Welcome to the show", "DAY6 - 예뻤어", "DAY6 - Congratulations",
                     "DAY6 - 뚫고 지나가요", "DAY6 - Zombie", "DAY6 - 놓아 놓아 놓아", "DAY6 - 행복했던 날들이었다",
                     "DAY6 - 좋아합니다", "DAY6 - 한 페이지가 될 수 있게", "DAY6 - 녹아내려요", "DAY6 - 어떻게 말해",
-                    "DAY6 - Shoot me", "DAY6 - Beautiful feeling", "DAY6 - Sweet Chaos", "DAY6 - 반드시 웃는다",
+                    "DAY6 - Shoot me", "DAY6 - Beautiful feeling", "DAY6 - Sweet Chaos", "DAY6 - 반드시 웃는다", "DAY6 - Love me or Leave me",
                     "유요 - 6.25 전쟁 요약 노래", "유요 - 조선 왕 이름 외우기", "유요 - 고려 왕 이름 외우기", "유요 - 서울의 봄 요약 노래"
                 ]
                 import random
