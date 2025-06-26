@@ -1,0 +1,182 @@
+import yt_dlp
+import os
+import tempfile
+import shutil
+from pathlib import Path
+import threading
+import time
+
+class YouTubeDownloader:
+    def __init__(self, output_dir, progress_hook=None):
+        self.output_dir = output_dir
+        self.progress_hook = progress_hook
+        
+    def get_base_ydl_opts(self, is_playlist=False):
+        """기본 yt-dlp 옵션"""
+        opts = {
+            'outtmpl': os.path.join(self.output_dir, '%(title)s.%(ext)s'),
+            'noplaylist': not is_playlist,
+            'extract_flat': False,
+            'writethumbnail': False,
+            'writeinfojson': False,
+            'ignoreerrors': True,
+            'no_warnings': False,
+            'retries': 3,
+            'fragment_retries': 3,
+            'skip_unavailable_fragments': True,
+        }
+        
+        if self.progress_hook:
+            opts['progress_hooks'] = [self.progress_hook]
+            
+        return opts
+    
+    def download_audio(self, url, quality="192", is_playlist=False, format_type="mp3"):
+        """오디오 다운로드 (MP3, M4A 지원)"""
+        ydl_opts = self.get_base_ydl_opts(is_playlist)
+        
+        if format_type == "m4a":
+            ydl_opts.update({
+                'format': 'bestaudio[ext=m4a]/bestaudio/best',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'm4a',
+                    'preferredquality': quality,
+                }],
+            })
+        else:
+            ydl_opts.update({
+                'format': 'bestaudio/best',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': quality,
+                }],
+            })
+        
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                # 비디오 정보 추출
+                info = ydl.extract_info(url, download=False)
+                
+                if is_playlist and 'entries' in info:
+                    # 재생목록의 경우 첫 번째 비디오만 다운로드 (데모)
+                    # 실제로는 모든 비디오를 다운로드해야 함
+                    entries = [entry for entry in info['entries'] if entry]
+                    if entries:
+                        ydl.download([entries[0]['webpage_url']])
+                        # 다운로드된 파일 찾기
+                        for file in os.listdir(self.output_dir):
+                            if file.endswith(('.mp3', '.m4a')):
+                                return os.path.join(self.output_dir, file)
+                else:
+                    # 단일 비디오 다운로드
+                    ydl.download([url])
+                    # 다운로드된 파일 찾기
+                    for file in os.listdir(self.output_dir):
+                        if file.endswith(('.mp3', '.m4a')):
+                            return os.path.join(self.output_dir, file)
+                            
+        except Exception as e:
+            raise Exception(f"오디오 다운로드 실패: {str(e)}")
+        
+        return None
+    
+    def download_video(self, url, quality="720", is_playlist=False, format_type="mp4"):
+        """비디오 다운로드 (MP4, WEBM 지원)"""
+        # 화질별 포맷 선택
+        quality_formats = {
+            "360": "best[height<=360]",
+            "480": "best[height<=480]",
+            "720": "best[height<=720]",
+            "1080": "best[height<=1080]",
+            "1440": "best[height<=1440]",
+            "2160": "best[height<=2160]"
+        }
+        
+        format_selector = quality_formats.get(quality, "best[height<=720]")
+        
+        ydl_opts = self.get_base_ydl_opts(is_playlist)
+        
+        if format_type == "webm":
+            ydl_opts.update({
+                'format': f'{format_selector}[ext=webm]/best[ext=webm]/best',
+                'merge_output_format': 'webm',
+            })
+        else:
+            ydl_opts.update({
+                'format': f'{format_selector}/best',
+                'merge_output_format': 'mp4',
+            })
+        
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                # 비디오 정보 추출
+                info = ydl.extract_info(url, download=False)
+                
+                if is_playlist and 'entries' in info:
+                    # 재생목록의 경우 첫 번째 비디오만 다운로드 (데모)
+                    # 실제로는 모든 비디오를 다운로드해야 함
+                    entries = [entry for entry in info['entries'] if entry]
+                    if entries:
+                        ydl.download([entries[0]['webpage_url']])
+                        # 다운로드된 파일 찾기
+                        for file in os.listdir(self.output_dir):
+                            if file.endswith(('.mp4', '.webm', '.mkv')):
+                                return os.path.join(self.output_dir, file)
+                else:
+                    # 단일 비디오 다운로드
+                    ydl.download([url])
+                    # 다운로드된 파일 찾기
+                    for file in os.listdir(self.output_dir):
+                        if file.endswith(('.mp4', '.webm', '.mkv')):
+                            return os.path.join(self.output_dir, file)
+                            
+        except Exception as e:
+            raise Exception(f"비디오 다운로드 실패: {str(e)}")
+        
+        return None
+    
+    def get_video_info(self, url):
+        """비디오 정보 추출"""
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'extract_flat': False,
+        }
+        
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                
+                # 재생목록인지 확인
+                is_playlist = 'entries' in info and len(info.get('entries', [])) > 1
+                
+                if is_playlist:
+                    # 재생목록 정보
+                    entries = [entry for entry in info['entries'] if entry]
+                    first_video = entries[0] if entries else {}
+                    
+                    return {
+                        'title': info.get('title', first_video.get('title', 'Unknown')),
+                        'uploader': info.get('uploader', first_video.get('uploader', 'Unknown')),
+                        'view_count': first_video.get('view_count', 0),
+                        'duration_string': first_video.get('duration_string', 'N/A'),
+                        'thumbnail': first_video.get('thumbnail'),
+                        'playlist_count': len(entries),
+                        'is_playlist': True
+                    }
+                else:
+                    # 단일 비디오 정보
+                    return {
+                        'title': info.get('title', 'Unknown'),
+                        'uploader': info.get('uploader', 'Unknown'),
+                        'view_count': info.get('view_count', 0),
+                        'duration_string': info.get('duration_string', 'N/A'),
+                        'thumbnail': info.get('thumbnail'),
+                        'playlist_count': None,
+                        'is_playlist': False
+                    }
+                    
+        except Exception as e:
+            return None
